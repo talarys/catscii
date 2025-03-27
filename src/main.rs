@@ -1,5 +1,8 @@
 use reqwest::StatusCode;
 use serde::Deserialize;
+use std::str::FromStr;
+use tracing::{Level, info};
+use tracing_subscriber::{filter::Targets, layer::SubscriberExt, util::SubscriberInitExt};
 
 use axum::{
     Router,
@@ -11,9 +14,22 @@ use axum::{
 
 #[tokio::main]
 async fn main() {
+    let filter = Targets::from_str(std::env::var("RUST_LOG").as_deref().unwrap_or("info"))
+        .expect("RUST_LOG should be a valid tracing filter");
+
+    tracing_subscriber::fmt()
+        .with_max_level(Level::TRACE)
+        .json()
+        .finish()
+        .with(filter)
+        .init();
+
     let app = Router::new().route("/", get(root_get));
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:8081").await.unwrap();
+    let addr = "0.0.0.0:8085";
+    info!("Listening on {addr}");
+
+    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
 
     axum::serve(listener, app).await.unwrap();
 }
